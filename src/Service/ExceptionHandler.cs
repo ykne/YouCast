@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 
 namespace Service
@@ -6,6 +6,6 @@ namespace Service
     public static class ExceptionHandler
     {
         public static void Handle(Exception exception) =>
-            Debug.WriteLine(exception);
+            Trace.TraceError(exception.ToString());
     }
 }

@@ -1,0 +1,34 @@
+# YouCast configuration. Install as /etc/youcast.conf (Linux) or
+# %ProgramData%\YouCast\youcast.conf (Windows). Format: key = value
+# Environment variables (YouCast__ApiKey, ...) and --Key=value override this file.
+
+# Required: YouTube Data API v3 key.
+ApiKey = 
+
+ApplicationName = YouCast
+
+# Listen address and port (0.0.0.0 = all IPv4 interfaces, :: = all IPv6).
+Host = 0.0.0.0
+Port = 22703
+
+# Connect to YouTube/Google over IPv4 only (default: true). Needed when the API key
+# is restricted to an IPv4 address but the host would prefer IPv6.
+#IPv4Only = true
+
+# Optional: send YouTube stream lookups (not the Google Data API) through a proxy,
+# e.g. when YouTube blocks this host's IP with "Sign in to confirm you're not a bot".
+# Supports http://, https:// and socks5:// URLs.
+#YouTubeProxy = socks5://proxy.example.com:1080
+
+# Video feeds (encoding=MP4_360p / MP4_720p): H.264 video and AAC audio are joined with ffmpeg (stream copy, no
+# transcoding) into a cache directory and served from here. Needs the ffmpeg package; without it audio is served.
+#FFmpegPath = ffmpeg
+#CacheDir = /var/cache/youcast
+#CacheMaxGB = 10
+#MaxConcurrentMuxes = 2
+# Start preparing the newest N episodes when a video feed is requested (0 = off).
+#PrewarmCount = 2
+
+# Optional: externally visible base URL used inside generated feeds,
+# e.g. when behind a reverse proxy or NAT. Default: taken from the request.
+#PublicBaseUrl = https://podcasts.example.com

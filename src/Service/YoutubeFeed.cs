@@ -1,26 +1,20 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.ServiceModel;
 using System.ServiceModel.Syndication;
-using System.ServiceModel.Web;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Google.Apis.Services;
 using Google.Apis.YouTube.v3.Data;
 using MoreLinq;
 using YoutubeExplode;
+using YoutubeExplode.Videos.Streams;
 using Video = Google.Apis.YouTube.v3.Data.Video;
 using YouTubeService = Google.Apis.YouTube.v3.YouTubeService;
 
 namespace Service
 {
-    [ServiceBehavior(
-        ConcurrencyMode = ConcurrencyMode.Multiple,
-        InstanceContextMode = InstanceContextMode.Single,
-        UseSynchronizationContext = false)]
-    public sealed class YoutubeFeed : IYoutubeFeed
+    public sealed class YoutubeFeed
     {
         private const string _channelUrlFormat = "http://www.youtube.com/channel/{0}";
         private const string _videoUrlFormat = "http://www.youtube.com/watch?v={0}";
@@ -28,32 +22,44 @@ namespace Service
 
         private readonly YoutubeClient _youtubeClient;
         private readonly YouTubeService _youtubeService;
+        private readonly VideoCache _videoCache;
 
-        public YoutubeFeed(string applicationName, string apiKey)
+        // Players such as iOS Podcasts fetch an episode in many small Range requests, each following our redirect.
+        // Resolving the stream URL through YouTube takes seconds, so reuse it (YouTube URLs stay valid for hours).
+        private readonly Cache<string, string> _audioUriCache = new Cache<string, string>(TimeSpan.FromMinutes(30));
+
+        public YoutubeFeed(string applicationName, string apiKey, bool ipv4Only = true, string youtubeProxy = null, VideoOptions videoOptions = null)
         {
-            _youtubeClient = new YoutubeClient();
+            _youtubeClient = new YoutubeClient(new System.Net.Http.HttpClient(HttpHandlers.Create(ipv4Only, youtubeProxy)));
+            if (videoOptions != null)
+            {
+                _videoCache = new VideoCache(_youtubeClient, videoOptions);
+            }
             _youtubeService =
                 new YouTubeService(
                     new BaseClientService.Initializer
                     {
                         ApiKey = apiKey,
-                        ApplicationName = applicationName
+                        ApplicationName = applicationName,
+                        HttpClientFactory = new GoogleHttpClientFactory(ipv4Only)
                     });
         }
 
-        public async Task<SyndicationFeedFormatter> GetUserFeedAsync(
+        public async Task<ItunesFeed> GetUserFeedAsync(
+            string baseAddress,
             string userId,
             string encoding,
             int maxLength,
             bool isPopular)
         {
-            return await GetFeedFormatterAsync(GetFeedAsync);
+            return await GetFeedAsync();
 
-            async Task<ItunesFeed> GetFeedAsync(string baseAddress)
+            async Task<ItunesFeed> GetFeedAsync()
             {
                 var channel =
                     await GetChannelAsync(userId) ??
-                    await FindChannelAsync(userId);
+                    await FindChannelAsync(userId) ??
+                    throw new FeedNotFoundException($"Channel '{userId}' was not found.");
 
                 var arguments = new Arguments(
                     channel.ContentDetails.RelatedPlaylists.Uploads,
@@ -82,7 +88,7 @@ namespace Service
                 listRequestForId.Fields = "items(contentDetails,id,snippet)";
 
                 var channelListResponse = await listRequestForId.ExecuteAsync();
-                return channelListResponse.Items?.Single();
+                return channelListResponse.Items?.SingleOrDefault();
             }
 
             async Task<Channel> FindChannelAsync(string username)
@@ -93,19 +99,20 @@ namespace Service
                 listRequestForUsername.Fields = "items(contentDetails,id,snippet)";
 
                 var channelListResponse = await listRequestForUsername.ExecuteAsync();
-                return channelListResponse.Items?.Single();
+                return channelListResponse.Items?.SingleOrDefault();
             }
         }
 
-        public async Task<SyndicationFeedFormatter> GetPlaylistFeedAsync(
+        public async Task<ItunesFeed> GetPlaylistFeedAsync(
+            string baseAddress,
             string playlistId,
             string encoding,
             int maxLength,
             bool isPopular)
         {
-            return await GetFeedFormatterAsync(GetFeedAsync);
+            return await GetFeedAsync();
 
-            async Task<ItunesFeed> GetFeedAsync(string baseAddress)
+            async Task<ItunesFeed> GetFeedAsync()
             {
                 var arguments =
                     new Arguments(
@@ -118,7 +125,9 @@ namespace Service
                 playlistRequest.Id = playlistId;
                 playlistRequest.MaxResults = 1;
 
-                var playlist = (await playlistRequest.ExecuteAsync()).Items.First();
+                var playlist =
+                    (await playlistRequest.ExecuteAsync()).Items?.FirstOrDefault() ??
+                    throw new FeedNotFoundException($"Playlist '{playlistId}' was not found.");
 
                 return new ItunesFeed(
                     GetTitle(playlist.Snippet.Title, arguments),
@@ -134,71 +143,52 @@ namespace Service
             }
         }
 
-        public async Task GetVideoAsync(string videoId, string encoding)
-        {
-            await GetContentAsync(GetVideoUriAsync);
+        /// <summary>
+        /// Path of an MP4 with H.264 video and AAC audio for the video (built on demand, see <see cref="VideoCache"/>),
+        /// or null when video is unavailable (no ffmpeg, no suitable streams, failure).
+        /// </summary>
+        public IDisposable BeginVideoClient() => _videoCache?.BeginClient();
 
-            async Task<string> GetVideoUriAsync()
+        public Task<string> GetVideoFileAsync(string videoId, string encoding) =>
+            _videoCache == null
+                ? Task.FromResult<string>(null)
+                : _videoCache.GetAsync(videoId, StreamSelector.ParseHeight(encoding));
+
+        public async Task<string> GetAudioUriAsync(string videoId)
+        {
+            if (_audioUriCache.TryGet(videoId, out var cachedUri))
             {
-                var resolution = 720;
-                try
-                {
-                    resolution = int.Parse(encoding.Remove(encoding.Length - 1).Substring(startIndex: 4));
-                }
-                catch
-                {
-                }
-
-                var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId);
-                var muxedStreamInfos = streamManifest.GetMuxedStreams().ToList();
-                var muxedStreamInfo =
-                    muxedStreamInfos.FirstOrDefault(_ => _.VideoResolution.Height == resolution) ??
-                    muxedStreamInfos.Maxima(_ => _.VideoQuality).FirstOrDefault();
-
-                return muxedStreamInfo?.Url;
+                return cachedUri;
             }
-        }
 
-        public async Task GetAudioAsync(string videoId)
-        {
-            await GetContentAsync(GetAudioUriAsync);
-
-            async Task<string> GetAudioUriAsync()
+            var uri = await ResolveAudioUriAsync(videoId);
+            if (uri != null)
             {
-                var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId);
-                var audios = streamManifest.GetAudioOnlyStreams().ToList();
-                return audios.Count > 0
-                    ? audios.Maxima(audio => audio.Bitrate).FirstOrDefault().Url
-                    : null;
+                _audioUriCache.Set(videoId, uri);
             }
+
+            return uri;
         }
 
-        private async Task<SyndicationFeedFormatter> GetFeedFormatterAsync(Func<string, Task<ItunesFeed>> getFeedAsync)
+        private async Task<string> ResolveAudioUriAsync(string videoId)
         {
-            var transportAddress = OperationContext.Current.IncomingMessageProperties.Via;
-            var baseAddress = $"http://{transportAddress.DnsSafeHost}:{transportAddress.Port}/FeedService";
-
-            WebOperationContext.Current.OutgoingResponse.ContentType = "application/rss+xml; charset=utf-8";
-
-            var feed = await getFeedAsync(baseAddress);
-            return feed.GetRss20Formatter();
-        }
-
-        private async Task GetContentAsync(Func<Task<string>> getContentUriAsync)
-        {
-            var context = WebOperationContext.Current;
-
-            string redirectUri;
             try
             {
-                redirectUri = await getContentUriAsync();
-            }
-            catch
-            {
-                redirectUri = null;
-            }
+                // Skip YoutubeExplode's per-stream probing (about 100 streams, seconds of requests); check only the pick.
+                var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId, validateStreams: false);
+                var audio = StreamSelector.SelectAudio(streamManifest, videoId);
+                if (audio == null || !await _youtubeClient.Videos.Streams.IsAvailableAsync(audio))
+                {
+                    return null;
+                }
 
-            context.OutgoingResponse.RedirectTo(redirectUri);
+                return audio.Url;
+            }
+            catch (Exception exception)
+            {
+                ExceptionHandler.Handle(exception);
+                return null;
+            }
         }
 
         private async Task<IEnumerable<SyndicationItem>> GenerateItemsAsync(
@@ -207,7 +197,17 @@ namespace Service
             Arguments arguments)
         {
             IEnumerable<PlaylistItem> playlistItems = (await GetPlaylistItemsAsync(arguments)).ToList();
-            var userVideos = playlistItems.Select(_ => GenerateItem(_, baseAddress, arguments));
+            var isVideo = _videoCache != null && arguments.Encoding != "Audio";
+            if (isVideo)
+            {
+                var height = StreamSelector.ParseHeight(arguments.Encoding);
+                foreach (var playlistItem in playlistItems.Take(_videoCache.PrewarmCount))
+                {
+                    _videoCache.Prewarm(playlistItem.Snippet.ResourceId.VideoId, height);
+                }
+            }
+
+            var userVideos = playlistItems.Select(_ => GenerateItem(_, baseAddress, arguments, isVideo));
             if (arguments.IsPopular)
             {
                 userVideos = await SortByPopularityAsync(userVideos, playlistItems, startDate);
@@ -236,7 +236,7 @@ namespace Service
             return playlistItems.Take(arguments.MaxLength);
         }
 
-        private static SyndicationItem GenerateItem(PlaylistItem playlistItem, string baseAddress, Arguments arguments)
+        private static SyndicationItem GenerateItem(PlaylistItem playlistItem, string baseAddress, Arguments arguments, bool isVideo)
         {
             var item = new SyndicationItem(
                 playlistItem.Snippet.Title,
@@ -248,26 +248,18 @@ namespace Service
                 Summary = new TextSyndicationContent(playlistItem.Snippet.Description),
             };
 
-            if (arguments.Encoding == "Audio")
-            {
-                item.ElementExtensions.Add(
-                    new XElement(
-                        "enclosure",
-                        new XAttribute("type", "audio/mp4"),
-                        new XAttribute(
-                            "url",
-                            baseAddress + $"/Audio.m4a?videoId={playlistItem.Snippet.ResourceId.VideoId}")).CreateReader());
-            }
-            else
-            {
-                item.ElementExtensions.Add(
-                    new XElement(
-                        "enclosure",
-                        new XAttribute("type", "video/mp4"),
-                        new XAttribute(
-                            "url",
-                            baseAddress + $"/Video.mp4?videoId={playlistItem.Snippet.ResourceId.VideoId}&encoding={arguments.Encoding}")).CreateReader());
-            }
+            // YouTube no longer offers muxed audio+video streams: video is built on demand (see VideoCache). Without
+            // video support every encoding (including legacy MP4_* subscriptions) is served as MP4/AAC audio.
+            var videoId = playlistItem.Snippet.ResourceId.VideoId;
+            item.ElementExtensions.Add(
+                new XElement(
+                    "enclosure",
+                    new XAttribute("type", isVideo ? "video/mp4" : "audio/mp4"),
+                    new XAttribute(
+                        "url",
+                        isVideo
+                            ? baseAddress + $"/Video.mp4?videoId={videoId}&encoding={arguments.Encoding}"
+                            : baseAddress + $"/Audio.m4a?videoId={videoId}")).CreateReader());
 
             return item;
         }
@@ -307,27 +299,5 @@ namespace Service
 
         private static string GetTitle(string title, Arguments arguments) =>
             arguments.IsPopular ? $"{title} (By Popularity)" : title;
-
-        private static string GetBaseAddress()
-        {
-            var transportAddress = OperationContext.Current.IncomingMessageProperties.Via;
-            return $"http://{transportAddress.DnsSafeHost}:{transportAddress.Port}/FeedService";
-        }
-    }
-
-    public static class OutgoingWebResponseContextExtension
-    {
-        public static void RedirectTo(this OutgoingWebResponseContext context, string redirectUri)
-        {
-            if (redirectUri != null)
-            {
-                context.StatusCode = HttpStatusCode.Redirect;
-                context.Headers[nameof(HttpResponseHeader.Location)] = redirectUri;
-            }
-            else
-            {
-                context.StatusCode = HttpStatusCode.NotFound;
-            }
-        }
     }
 }

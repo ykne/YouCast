@@ -1,75 +1,20 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.20212</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{9D512757-C17F-45AA-B0F0-5702AEB7A437}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <!-- git submodule (fork with GetManifestAsync(validateStreams: false)); the RPM build unpacks the same source next to the tree -->
+    <YoutubeExplodeProject Condition="'$(YoutubeExplodeProject)' == '' and Exists('$(MSBuildThisFileDirectory)../../third_party/YoutubeExplode/YoutubeExplode/YoutubeExplode.csproj')">$(MSBuildThisFileDirectory)../../third_party/YoutubeExplode/YoutubeExplode/YoutubeExplode.csproj</YoutubeExplodeProject>
+    <YoutubeExplodeProject Condition="'$(YoutubeExplodeProject)' == ''">$(MSBuildThisFileDirectory)../../../YoutubeExplode/YoutubeExplode/YoutubeExplode.csproj</YoutubeExplodeProject>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Service</RootNamespace>
     <AssemblyName>Service</AssemblyName>
-    <ProjectTypeGuids>{3D9AD99F-2412-4246-B90B-4EAA41C64699};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <StartArguments>"/client:iexplore.exe" "/clientArgs:http://localhost:8733/Design_Time_Addresses/Service/Feed1/"</StartArguments>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <WcfConfigValidationEnabled>True</WcfConfigValidationEnabled>
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
-    <RestorePackages>true</RestorePackages>
-    <NuGetPackageImportStamp>7471ee2f</NuGetPackageImportStamp>
-    <TargetFrameworkProfile />
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net" />
-    <Reference Include="System.Runtime.Caching" />
-    <Reference Include="System.ServiceModel" />
-    <Reference Include="System.ServiceModel.Web" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
-  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Google.Apis.YouTube.v3" Version="1.67.0.3358" />
     <PackageReference Include="Humanizer.Core" Version="2.14.1" />
     <PackageReference Include="morelinq" Version="4.1.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
-    <PackageReference Include="YoutubeExplode" Version="6.3.13" />
+    <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.0" />
+    <!-- The peer checkout carries a TV client that works with a logged-in session (CookiesFile); fall back to the package. -->
+    <PackageReference Include="YoutubeExplode" Version="6.6.3" Condition="!Exists('$(YoutubeExplodeProject)')" />
+    <ProjectReference Include="$(YoutubeExplodeProject)" Condition="Exists('$(YoutubeExplodeProject)')" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="**\*.cs" Exclude="obj\**" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <ProjectExtensions>
-    <VisualStudio>
-      <FlavorProperties GUID="{3D9AD99F-2412-4246-B90B-4EAA41C64699}">
-        <WcfProjectProperties>
-          <AutoStart>True</AutoStart>
-        </WcfProjectProperties>
-      </FlavorProperties>
-    </VisualStudio>
-  </ProjectExtensions>
 </Project>

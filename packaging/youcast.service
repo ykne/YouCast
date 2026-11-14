@@ -1,0 +1,22 @@
+[Unit]
+Description=YouCast - YouTube to podcast feed service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=youcast
+Group=youcast
+ExecStart=/usr/libexec/youcast/youcast
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+CacheDirectory=youcast
+CacheDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target
