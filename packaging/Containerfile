@@ -11,7 +11,7 @@
 # The service runs as youcast, UID/GID 10017, fixed so that a bind-mounted or pre-created cache directory
 # can be given to it from the host (for example: podman unshare chown 10017:10017 DIR in rootless mode).
 FROM docker.io/library/almalinux:10
-ARG RPM=youcast-3.0.0-1.x86_64.rpm
+ARG RPM=youcast-3.0.0-2.x86_64.rpm
 # Created before the RPM is installed; the RPM's scriptlet keeps an existing user.
 RUN groupadd -g 10017 youcast \
     && useradd -u 10017 -g youcast -d /var/empty -s /sbin/nologin -c "YouCast service" youcast

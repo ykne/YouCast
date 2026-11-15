@@ -4,7 +4,7 @@
 
 Name:           youcast
 Version:        3.0.0
-Release:        1
+Release:        2
 Summary:        Serve YouTube channels and playlists as podcast feeds
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/i3arnon/YouCast
@@ -68,6 +68,9 @@ exit 0
 %config(noreplace) %attr(0640,root,youcast) %{_sysconfdir}/youcast.conf
 
 %changelog
+* Sun Nov 15 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-2
+- Video quality uses the shorter side of the picture, so vertical videos get 360x640 instead of 144x256
+
 * Sat Nov 14 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-1
 - Headless ASP.NET Core service (.NET 10, systemd) replacing the WPF/WCF application
 - Audio feeds as MP4/AAC original-language track; video feeds by joining H.264 video and AAC audio with ffmpeg

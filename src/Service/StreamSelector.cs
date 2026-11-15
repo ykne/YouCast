@@ -52,6 +52,8 @@ namespace Service
         /// <summary>
         /// Picks an H.264 (avc1) MP4 video-only stream: the highest resolution not above <paramref name="height"/>,
         /// otherwise the lowest one above it. Returns null when there is no H.264 MP4 stream.
+        /// The size is the shorter side of the picture, so a vertical 9:16 video (360x640) counts as 360p like its
+        /// landscape counterpart (640x360) instead of being limited to 144p.
         /// </summary>
         public static VideoOnlyStreamInfo SelectVideo(StreamManifest manifest, int height)
         {
@@ -61,12 +63,15 @@ namespace Service
                     video.VideoCodec.StartsWith("avc1", StringComparison.OrdinalIgnoreCase)).
                 ToList();
 
-            var below = videos.Where(video => video.VideoResolution.Height <= height).ToList();
+            var below = videos.Where(video => ShorterSide(video) <= height).ToList();
             var candidates = below.Count > 0
-                ? below.Maxima(video => video.VideoResolution.Height).ToList()
-                : videos.Minima(video => video.VideoResolution.Height).ToList();
+                ? below.Maxima(ShorterSide).ToList()
+                : videos.Minima(ShorterSide).ToList();
 
             return candidates.Maxima(video => video.Bitrate).FirstOrDefault();
         }
+
+        private static int ShorterSide(VideoOnlyStreamInfo video) =>
+            Math.Min(video.VideoResolution.Width, video.VideoResolution.Height);
     }
 }
