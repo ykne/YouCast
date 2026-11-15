@@ -97,6 +97,7 @@ YouTubeProxy = socks5://proxy.example.com:1080
 `packaging/Containerfile` installs the RPM into an AlmaLinux 10 image (EPEL is enabled for `ffmpeg-free`) and runs the
 service as the unprivileged `youcast` user. Build and run commands are at the top of the file. There is no systemd in the
 container, so settings come from a mounted `youcast.conf` (or `YouCast__*` environment variables) and the cache is a volume.
+The service user is UID/GID 10017. For EL7 hosts with the old podman 1.4.4 see `CONTAINER-EL7.md`.
 
 ## Linux (manual)
 ```

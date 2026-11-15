@@ -1,19 +1,27 @@
-# YouCast in an EL10 container, installed from the RPM (tested with podman on Oracle Linux 9.8).
+# YouCast in an EL10 container, installed from the RPM (tested with podman 5.8 on Oracle Linux 9.8).
+# For old hosts (EL7, podman 1.x) see CONTAINER-EL7.md.
 #
 #   podman build -f packaging/Containerfile -t youcast:3.0.0 "$(rpm --eval %_rpmdir)/x86_64"
-#   podman volume create youcast-cache
 #   podman run -d --name youcast -p 22703:22703 \
 #       -v /path/to/youcast.conf:/etc/youcast.conf:ro,Z -v youcast-cache:/var/cache/youcast:Z youcast:3.0.0
 #
 # The build context must contain the RPM. The config file must be readable by the container's
 # "youcast" user (mode 0644 on the host copy).
+#
+# The service runs as youcast, UID/GID 10017, fixed so that a bind-mounted or pre-created cache directory
+# can be given to it from the host (for example: podman unshare chown 10017:10017 DIR in rootless mode).
 FROM docker.io/library/almalinux:10
 ARG RPM=youcast-3.0.0-1.x86_64.rpm
+# Created before the RPM is installed; the RPM's scriptlet keeps an existing user.
+RUN groupadd -g 10017 youcast \
+    && useradd -u 10017 -g youcast -d /var/empty -s /sbin/nologin -c "YouCast service" youcast
 # epel-release provides ffmpeg-free, which the RPM requires.
 COPY ${RPM} /tmp/
 RUN dnf -y install epel-release && dnf -y install /tmp/${RPM} \
     && dnf clean all && rm -f /tmp/*.rpm \
-    && install -d -o youcast -g youcast /var/cache/youcast
+    && install -d -o youcast -g youcast -m 0750 /var/cache/youcast
+# A new named volume inherits this directory's owner (podman 2 and later, docker).
+VOLUME /var/cache/youcast
 USER youcast
 EXPOSE 22703
 CMD ["/usr/libexec/youcast/youcast", "--conf", "/etc/youcast.conf"]
