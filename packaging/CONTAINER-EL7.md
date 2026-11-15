@@ -40,7 +40,7 @@ podman 1.4.4 is very old.
    The image fixes `youcast` to UID/GID 10017, so give the volume to it from inside the user namespace:
    ```
    podman volume create youcast-cache
-   V=$(podman volume inspect youcast-cache --format '{{.Mountpoint}}')
+   V=$HOME/.local/share/containers/storage/volumes/youcast-cache/_data   # podman 1.4.4 has no --format {{.Mountpoint}}
    podman unshare chown 10017:10017 "$V" && podman unshare chmod 750 "$V"
    ```
    Afterwards the host user cannot list the directory directly (it is owned by a sub-UID); use `podman unshare ls`.
