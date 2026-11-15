@@ -229,11 +229,35 @@ namespace Service
                 playlistItemsListRequest.Fields = "items(id,snippet),nextPageToken";
 
                 var playlistItemsListResponse = await playlistItemsListRequest.ExecuteAsync();
-                playlistItems.AddRange(playlistItemsListResponse.Items);
+                var notLive = await ExcludeLiveAsync(playlistItemsListResponse.Items);
+                playlistItems.AddRange(notLive);
                 nextPageToken = playlistItemsListResponse.NextPageToken;
             }
 
             return playlistItems.Take(arguments.MaxLength);
+        }
+
+        // Live streams and announced (upcoming) broadcasts have no media streams yet, so serving them would only
+        // give 404s. They are left out of the feed and show up once YouTube has turned them into normal videos.
+        // One videos.list call per page of 50 items (1 quota unit).
+        private async Task<IList<PlaylistItem>> ExcludeLiveAsync(IList<PlaylistItem> items)
+        {
+            if (items.Count == 0)
+            {
+                return items;
+            }
+
+            var request = _youtubeService.Videos.List("snippet");
+            request.Id = string.Join(",", items.Select(_ => _.Snippet.ResourceId.VideoId).Distinct());
+            request.MaxResults = 50;
+            request.Fields = "items(id,snippet/liveBroadcastContent)";
+            var live = (await request.ExecuteAsync()).Items.
+                Where(_ => _.Snippet?.LiveBroadcastContent is "live" or "upcoming").
+                Select(_ => _.Id).
+                ToHashSet();
+            return live.Count == 0
+                ? items
+                : items.Where(_ => !live.Contains(_.Snippet.ResourceId.VideoId)).ToList();
         }
 
         private static SyndicationItem GenerateItem(PlaylistItem playlistItem, string baseAddress, Arguments arguments, bool isVideo)
