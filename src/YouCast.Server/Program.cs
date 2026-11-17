@@ -1,7 +1,9 @@
+using System.IO.Compression;
 using System.ServiceModel.Syndication;
 using System.Text;
 using System.Xml;
 using Google;
+using Microsoft.AspNetCore.ResponseCompression;
 using Service;
 using YouCast.Server;
 
@@ -82,7 +84,18 @@ YoutubeFeed CreateFeed()
 
 builder.Services.AddSingleton(CreateFeed());
 
+// Feeds are large XML (a 1000-item feed is ~2.7 MB) and compress about 5-8x. Only the feeds are compressed: video/mp4 stays as it is
+// (it is served with Range support), and the short text/plain error bodies are not worth it. iOS offers gzip and deflate, no Brotli.
+builder.Services.AddResponseCompression(options =>
+{
+    options.MimeTypes = new[] { "application/rss+xml" };
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Optimal);
+
 var app = builder.Build();
+
+app.UseResponseCompression();
 
 // Turn upstream failures into short, accurate responses instead of unhandled 500s with stack traces.
 app.Use(async (context, next) =>

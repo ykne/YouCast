@@ -4,7 +4,7 @@
 
 Name:           youcast
 Version:        3.0.0
-Release:        3
+Release:        4
 Summary:        Serve YouTube channels and playlists as podcast feeds
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/i3arnon/YouCast
@@ -68,6 +68,9 @@ exit 0
 %config(noreplace) %attr(0640,root,youcast) %{_sysconfdir}/youcast.conf
 
 %changelog
+* Mon Nov 16 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-4
+- Feeds are gzip-compressed when the client accepts it (about 6x smaller)
+
 * Sun Nov 15 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-3
 - Feeds no longer list live streams and announced (upcoming) broadcasts, which have nothing to play yet
 

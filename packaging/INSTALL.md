@@ -16,7 +16,7 @@ rpmbuild -ba packaging/youcast.spec
 
 Install (the target needs `aspnetcore-runtime-10.0`; dnf pulls it in on Fedora and RHEL/Oracle Linux 8+):
 ```
-sudo dnf install ./youcast-3.0.0-3.x86_64.rpm
+sudo dnf install ./youcast-3.0.0-4.x86_64.rpm
 sudo editor /etc/youcast.conf              # set ApiKey, see "Configuration" below
 sudo systemctl enable --now youcast        # the package does NOT enable the service itself
 sudo firewall-cmd --permanent --add-service=youcast && sudo firewall-cmd --reload
