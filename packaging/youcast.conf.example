@@ -29,6 +29,11 @@ Port = 22703
 # Start preparing the newest N episodes when a video feed is requested (0 = off).
 #PrewarmCount = 2
 
+# Feed lists are cached (memory and <CacheDir>/feeds) to save YouTube API quota: within this many minutes a feed is
+# served without any API call; after it one request checks for new videos. Rebuilt from scratch every N days.
+#FeedRefreshMinutes = 10
+#FeedFullRefreshDays = 7
+
 # Optional: externally visible base URL used inside generated feeds,
 # e.g. when behind a reverse proxy or NAT. Default: taken from the request.
 #PublicBaseUrl = https://podcasts.example.com

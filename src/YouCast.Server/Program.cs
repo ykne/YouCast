@@ -60,6 +60,14 @@ else
     Console.Error.WriteLine($"ffmpeg not found ('{ffmpegPath}'): video feeds disabled, serving audio instead.");
 }
 
+// Feed lists are kept (in memory and as files under <CacheDir>/feeds) so that YouTube API quota is spent only on what changed.
+var feedCache = new FeedCacheOptions
+{
+    Dir = Path.Combine(builder.Configuration["YouCast:CacheDir"] ?? VideoOptions.DefaultCacheDir, "feeds"),
+    RefreshInterval = TimeSpan.FromMinutes(builder.Configuration.GetValue("YouCast:FeedRefreshMinutes", 10.0)),
+    FullRefreshInterval = TimeSpan.FromDays(builder.Configuration.GetValue("YouCast:FeedFullRefreshDays", 7.0)),
+};
+
 YoutubeFeed CreateFeed()
 {
     try
@@ -69,7 +77,8 @@ YoutubeFeed CreateFeed()
             apiKey,
             builder.Configuration.GetValue("YouCast:IPv4Only", true),
             builder.Configuration["YouCast:YouTubeProxy"],
-            videoOptions);
+            videoOptions,
+            feedCache);
     }
     catch (Exception exception) when (videoOptions != null && exception is IOException or UnauthorizedAccessException)
     {
@@ -78,7 +87,8 @@ YoutubeFeed CreateFeed()
             builder.Configuration["YouCast:ApplicationName"] ?? "YouCast",
             apiKey,
             builder.Configuration.GetValue("YouCast:IPv4Only", true),
-            builder.Configuration["YouCast:YouTubeProxy"]);
+            builder.Configuration["YouCast:YouTubeProxy"],
+            feedCache: feedCache);
     }
 }
 
