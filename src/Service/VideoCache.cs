@@ -139,6 +139,7 @@ namespace Service
             try
             {
                 var gate = job.IsPrewarm ? _prewarmGate : _demandGate;
+                var queued = Stopwatch.StartNew();
                 await gate.WaitAsync(job.Cancellation.Token);
                 try
                 {
@@ -151,6 +152,11 @@ namespace Service
                     {
                         job.Cancellation.Token.ThrowIfCancellationRequested();
                         job.Started = true;
+                    }
+
+                    if (queued.Elapsed > TimeSpan.FromSeconds(1))
+                    {
+                        ServiceLog.Info("YouCast.Video", $"{videoId}_{height}: waited {queued.Elapsed.TotalSeconds:F0} s for a free slot{(job.IsPrewarm ? " (pre-warm)" : string.Empty)}.");
                     }
 
                     return await ProduceAsync(videoId, height, path);
@@ -209,30 +215,35 @@ namespace Service
                 }
 
                 var stopwatch = Stopwatch.StartNew();
+                ServiceLog.Info("YouCast.Video", $"{name}: started.");
                 var manifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId, validateStreams: false);
+                var manifestTime = stopwatch.Elapsed;
                 var video = StreamSelector.SelectVideo(manifest, height);
                 var audio = StreamSelector.SelectAudio(manifest, videoId);
                 if (video == null || audio == null)
                 {
-                    ExceptionHandler.Handle(new InvalidOperationException($"No H.264 video or AAC audio stream for video '{videoId}'."));
+                    ServiceLog.Warn("YouCast.Video", $"{name}: no H.264 video or AAC audio stream available (manifest took {manifestTime.TotalSeconds:F0} s); serving audio instead.");
                     return null;
                 }
 
                 await Task.WhenAll(
-                    DownloadAsync(video, videoPath),
-                    DownloadAsync(audio, audioPath));
+                    DownloadAsync(name, video, videoPath),
+                    DownloadAsync(name, audio, audioPath));
                 var downloaded = stopwatch.Elapsed;
 
                 await MuxAsync(videoPath, audioPath, outputPath);
                 File.Move(outputPath, finalPath, overwrite: true);
 
-                Trace.TraceInformation(
-                    $"Video {name}: {video.VideoQuality} {new FileInfo(finalPath).Length / 1048576} MB, download {downloaded.TotalSeconds:F0}s, total {stopwatch.Elapsed.TotalSeconds:F0}s.");
+                var megabytes = new FileInfo(finalPath).Length / 1048576.0;
+                ServiceLog.Info(
+                    "YouCast.Video",
+                    $"{name}: ready, {video.VideoQuality} {megabytes:F1} MB, manifest {manifestTime.TotalSeconds:F0} s, download {(downloaded - manifestTime).TotalSeconds:F0} s ({megabytes / Math.Max(0.5, (downloaded - manifestTime).TotalSeconds):F1} MB/s), join {(stopwatch.Elapsed - downloaded).TotalSeconds:F0} s, total {stopwatch.Elapsed.TotalSeconds:F0} s.");
                 Evict(finalPath);
                 return finalPath;
             }
             catch (Exception exception)
             {
+                ServiceLog.Error("YouCast.Video", $"{name}: failed ({exception.GetType().Name}: {exception.Message}); serving audio instead.");
                 ExceptionHandler.Handle(exception);
                 return null;
             }
@@ -254,7 +265,7 @@ namespace Service
         private const long MinBytesPerWindow = 500 * 1024;
         private const int MaxReconnects = 8;
 
-        private async Task DownloadAsync(YoutubeExplode.Videos.Streams.IStreamInfo streamInfo, string path)
+        private async Task DownloadAsync(string name, YoutubeExplode.Videos.Streams.IStreamInfo streamInfo, string path)
         {
             var length = streamInfo.Size.Bytes;
             var buffer = new byte[128 * 1024];
@@ -304,7 +315,7 @@ namespace Service
                         (exception is OperationCanceledException || exception is TimeoutException || exception is IOException)
                         && ++reconnects <= MaxReconnects)
                     {
-                        Trace.TraceWarning($"Download of {path} too slow or stuck at {written / 1048576} MB of {length / 1048576} MB ({exception.GetType().Name}); reconnecting ({reconnects}/{MaxReconnects}).");
+                        ServiceLog.Warn("YouCast.Video", $"{name}: download of {Path.GetFileName(path)} too slow or stuck at {written / 1048576} MB of {length / 1048576} MB ({exception.GetType().Name}: {exception.Message}); reconnecting ({reconnects}/{MaxReconnects}).");
                     }
                 }
             }
@@ -384,6 +395,7 @@ namespace Service
                         if (TryDelete(file.FullName))
                         {
                             total -= file.Length;
+                            ServiceLog.Info("YouCast.Video", $"cache full: removed {file.Name} ({file.Length / 1048576} MB).");
                         }
                     }
                 }

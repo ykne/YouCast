@@ -4,7 +4,7 @@
 
 Name:           youcast
 Version:        3.0.0
-Release:        5
+Release:        6
 Summary:        Serve YouTube channels and playlists as podcast feeds
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/i3arnon/YouCast
@@ -68,6 +68,8 @@ exit 0
 %config(noreplace) %attr(0640,root,youcast) %{_sysconfdir}/youcast.conf
 
 %changelog
+* Sun Nov 22 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-6
+- Video generation is logged (start, queue wait, manifest/download/join times, reconnects, failures) and log lines carry UTC timestamps
 * Tue Nov 17 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-5
 - Feed lists are cached and updated incrementally (about one API call per feed instead of hundreds); the saved feed is served when YouTube cannot be asked
 * Mon Nov 16 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-4

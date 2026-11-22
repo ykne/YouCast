@@ -25,6 +25,16 @@ builder.Configuration.
     AddEnvironmentVariables().
     AddCommandLine(args);
 
+// Timestamps (UTC) on the log lines; when started by systemd the journal adds its own.
+if (!Microsoft.Extensions.Hosting.Systemd.SystemdHelpers.IsSystemdService())
+{
+    builder.Logging.AddSimpleConsole(options =>
+    {
+        options.TimestampFormat = "yyyy-MM-dd HH:mm:ss'Z' ";
+        options.UseUtcTimestamp = true;
+    });
+}
+
 // No-ops unless actually started by systemd / the Windows Service Control Manager.
 builder.Host.UseSystemd();
 builder.Host.UseWindowsService(options => options.ServiceName = "YouCast");
