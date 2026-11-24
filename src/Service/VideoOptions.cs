@@ -9,6 +9,9 @@ namespace Service
         public string FFmpegPath { get; set; } = "ffmpeg";
         public string CacheDir { get; set; }
         public long CacheMaxBytes { get; set; } = 10L * 1024 * 1024 * 1024;
+
+        /// <summary>A cached video that has not been requested for this long is deleted (zero: keep until the size limit is reached).</summary>
+        public TimeSpan CacheMaxAge { get; set; } = TimeSpan.FromHours(12);
         public int MaxConcurrentMuxes { get; set; } = 2;
         public int PrewarmCount { get; set; } = 2;
 

@@ -4,7 +4,7 @@
 
 Name:           youcast
 Version:        3.0.0
-Release:        6
+Release:        7
 Summary:        Serve YouTube channels and playlists as podcast feeds
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/i3arnon/YouCast
@@ -68,6 +68,8 @@ exit 0
 %config(noreplace) %attr(0640,root,youcast) %{_sysconfdir}/youcast.conf
 
 %changelog
+* Mon Nov 23 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-7
+- Cached videos are deleted after 12 hours without being requested (CacheMaxAgeHours, 0 = keep until the size limit is reached)
 * Sun Nov 22 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-6
 - Video generation is logged (start, queue wait, manifest/download/join times, reconnects, failures) and log lines carry UTC timestamps
 * Tue Nov 17 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-5

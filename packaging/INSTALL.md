@@ -16,7 +16,7 @@ rpmbuild -ba packaging/youcast.spec
 
 Install (the target needs `aspnetcore-runtime-10.0`; dnf pulls it in on Fedora and RHEL/Oracle Linux 8+):
 ```
-sudo dnf install ./youcast-3.0.0-6.x86_64.rpm
+sudo dnf install ./youcast-3.0.0-7.x86_64.rpm
 sudo editor /etc/youcast.conf              # set ApiKey, see "Configuration" below
 sudo systemctl enable --now youcast        # the package does NOT enable the service itself
 sudo firewall-cmd --permanent --add-service=youcast && sudo firewall-cmd --reload
@@ -69,6 +69,7 @@ Needs `ffmpeg`: `ffmpeg-free` from EPEL on RHEL/Oracle Linux 9 (`dnf install epe
 | `FFmpegPath` | `ffmpeg` | ffmpeg used to join video and audio. If it is missing, video requests are served as audio. |
 | `CacheDir` | `/var/cache/youcast` | Where joined video files are kept (the RPM's unit creates it via `CacheDirectory=`). |
 | `CacheMaxGB` | `10` | Cache size limit; the least recently used files are deleted first. |
+| `CacheMaxAgeHours` | `12` | A cached video not requested for this long is deleted (`0` = keep until the size limit is reached). |
 | `MaxConcurrentMuxes` | `2` | How many videos are downloaded and joined at the same time. |
 | `PrewarmCount` | `2` | Newest episodes prepared in the background when a video feed is requested (`0` = off). |
 | `FeedRefreshMinutes` | `10` | Feed lists are cached (memory and `CacheDir/feeds`). Within this time a feed costs no YouTube API quota; after it one request looks for new videos. If YouTube cannot be asked (quota, network) the saved feed is served and a warning logged. |

@@ -32,6 +32,7 @@ namespace Service
         private readonly Dictionary<string, Job> _jobs = new Dictionary<string, Job>();
         private readonly object _lock = new object();
         private readonly object _evictionLock = new object();
+        private readonly Timer _expirationTimer;
         private int _demandJobs;
         private int _activeClients;
 
@@ -58,6 +59,12 @@ namespace Service
             }
 
             Directory.CreateDirectory(_tempDir);
+
+            // Expired files are removed even when no new video is produced.
+            if (options.CacheMaxAge > TimeSpan.Zero)
+            {
+                _expirationTimer = new Timer(_ => Evict(null), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(30));
+            }
         }
 
         public int PrewarmCount => _options.PrewarmCount;
@@ -379,6 +386,23 @@ namespace Service
                 try
                 {
                     var files = new DirectoryInfo(_cacheDir).GetFiles("*.mp4").OrderBy(file => file.LastWriteTimeUtc).ToList();
+
+                    // The modification time is set again whenever a video is requested, so this is the time since last use.
+                    if (_options.CacheMaxAge > TimeSpan.Zero)
+                    {
+                        var expired = DateTime.UtcNow - _options.CacheMaxAge;
+                        foreach (var file in files.ToList())
+                        {
+                            if (file.LastWriteTimeUtc < expired
+                                && !string.Equals(file.FullName, keep, StringComparison.Ordinal)
+                                && TryDelete(file.FullName))
+                            {
+                                files.Remove(file);
+                                ServiceLog.Info("YouCast.Video", $"cache expired: removed {file.Name} ({file.Length / 1048576} MB, unused for {(DateTime.UtcNow - file.LastWriteTimeUtc).TotalHours:0.#} h).");
+                            }
+                        }
+                    }
+
                     var total = files.Sum(file => file.Length);
                     foreach (var file in files)
                     {

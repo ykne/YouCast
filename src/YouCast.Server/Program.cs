@@ -61,6 +61,7 @@ if (VideoOptions.IsFFmpegAvailable(ffmpegPath))
         FFmpegPath = ffmpegPath,
         CacheDir = builder.Configuration["YouCast:CacheDir"] ?? VideoOptions.DefaultCacheDir,
         CacheMaxBytes = (long)(builder.Configuration.GetValue("YouCast:CacheMaxGB", 10.0) * 1024 * 1024 * 1024),
+        CacheMaxAge = TimeSpan.FromHours(builder.Configuration.GetValue("YouCast:CacheMaxAgeHours", 12.0)),
         MaxConcurrentMuxes = builder.Configuration.GetValue("YouCast:MaxConcurrentMuxes", 2),
         PrewarmCount = builder.Configuration.GetValue("YouCast:PrewarmCount", 2),
     };
