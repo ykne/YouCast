@@ -26,6 +26,7 @@ Configure it in `/etc/youcast.conf` (see [packaging/youcast.conf.example](packag
 Podcast URLs are built by hand:
 
 - Channel: `http://HOST:22703/FeedService/GetUserFeed?userId=CHANNEL_ID_OR_NAME&encoding=Audio&maxLength=0&isPopular=false`
+  `CHANNEL_ID_OR_NAME` is a channel id (`UC…`), an `@handle` (write `%40handle` in the URL) or an old username.
 - Playlist: `http://HOST:22703/FeedService/GetPlaylistFeed?playlistId=PLAYLIST_ID&encoding=MP4_720p&maxLength=0&isPopular=false`
 
 `encoding` is `Audio` (MP4/AAC audio) or `MP4_360p` / `MP4_720p` (H.264 video + AAC, joined on the server with ffmpeg and cached; see [packaging/INSTALL.md](packaging/INSTALL.md)). Without ffmpeg, every value serves audio. `maxLength=0` means unlimited.

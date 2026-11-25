@@ -74,7 +74,9 @@ namespace Service
 
             async Task<CachedChannel> LookupAsync()
             {
-                var found = await GetChannelAsync(userId) ?? await FindChannelAsync(userId);
+                var found = userId.StartsWith('@')
+                    ? await FindChannelByHandleAsync(userId)
+                    : await GetChannelAsync(userId) ?? await FindChannelAsync(userId);
                 return found == null
                     ? null
                     : new CachedChannel
@@ -96,6 +98,17 @@ namespace Service
                 listRequestForId.Fields = "items(contentDetails,id,snippet)";
 
                 var channelListResponse = await listRequestForId.ExecuteAsync();
+                return channelListResponse.Items?.SingleOrDefault();
+            }
+
+            async Task<Channel> FindChannelByHandleAsync(string handle)
+            {
+                var listRequestForHandle = _youtubeService.Channels.List("snippet,contentDetails");
+                listRequestForHandle.ForHandle = handle;
+                listRequestForHandle.MaxResults = 1;
+                listRequestForHandle.Fields = "items(contentDetails,id,snippet)";
+
+                var channelListResponse = await listRequestForHandle.ExecuteAsync();
                 return channelListResponse.Items?.SingleOrDefault();
             }
 
