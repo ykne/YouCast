@@ -4,7 +4,7 @@
 
 Name:           youcast
 Version:        3.0.0
-Release:        8
+Release:        9
 Summary:        Serve YouTube channels and playlists as podcast feeds
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/i3arnon/YouCast
@@ -68,6 +68,8 @@ exit 0
 %config(noreplace) %attr(0640,root,youcast) %{_sysconfdir}/youcast.conf
 
 %changelog
+* Wed Nov 25 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-9
+- Channel lookup uses one API call chosen by the value: @handle, UC channel id, otherwise old username
 * Tue Nov 24 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-8
 - A channel given as @handle is looked up by handle (forHandle)
 * Mon Nov 23 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-7

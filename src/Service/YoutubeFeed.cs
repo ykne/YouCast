@@ -74,9 +74,12 @@ namespace Service
 
             async Task<CachedChannel> LookupAsync()
             {
+                // One lookup, chosen by the form of the value: @handle, UC... channel id, otherwise an old username.
                 var found = userId.StartsWith('@')
                     ? await FindChannelByHandleAsync(userId)
-                    : await GetChannelAsync(userId) ?? await FindChannelAsync(userId);
+                    : userId.StartsWith("UC", StringComparison.Ordinal)
+                        ? await GetChannelAsync(userId)
+                        : await FindChannelAsync(userId);
                 return found == null
                     ? null
                     : new CachedChannel
