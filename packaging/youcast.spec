@@ -4,7 +4,7 @@
 
 Name:           youcast
 Version:        3.0.0
-Release:        10
+Release:        11
 Summary:        Serve YouTube channels and playlists as podcast feeds
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/i3arnon/YouCast
@@ -68,6 +68,8 @@ exit 0
 %config(noreplace) %attr(0640,root,youcast) %{_sysconfdir}/youcast.conf
 
 %changelog
+* Fri Nov 27 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-11
+- .NET 10 servicing updates: System.ServiceModel.Syndication, Microsoft.Extensions.Hosting.Systemd and .WindowsServices 10.0.0 -> 10.0.15
 * Fri Nov 27 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-10
 - Videos YouTube has not finished processing (uploadStatus "uploaded", e.g. a live stream that just ended) are left out of feeds until they are
 * Wed Nov 25 2026 ykne <6250736+ykne@users.noreply.github.com> - 3.0.0-9
