@@ -356,16 +356,16 @@ namespace Service
 
         private async Task<CachedPlaylist> UpdatePlaylistAsync(CachedPlaylist cached, string playlistId, int maxLength, bool uploads)
         {
-            // Streams that were live or announced: show them once they are normal videos, drop them when they are gone.
+            // Videos that were live, announced or not yet processed: show them once they are normal videos, drop them when they are gone.
             var pending = cached.Items.Where(_ => _.Pending).Take(50).ToList();
             if (pending.Count > 0)
             {
                 var states = await GetVideoStatesAsync(pending.Select(_ => _.VideoId));
                 foreach (var item in pending)
                 {
-                    if (states.TryGetValue(item.VideoId, out var isLive))
+                    if (states.TryGetValue(item.VideoId, out var notReady))
                     {
-                        item.Pending = isLive;
+                        item.Pending = notReady;
                     }
                     else
                     {
@@ -469,24 +469,30 @@ namespace Service
                 Title = _.Snippet.Title,
                 Description = _.Snippet.Description,
                 PublishedAt = _.Snippet.PublishedAtDateTimeOffset.GetValueOrDefault().UtcDateTime,
-                Pending = states.TryGetValue(_.Snippet.ResourceId.VideoId, out var isLive) && isLive,
+                Pending = states.TryGetValue(_.Snippet.ResourceId.VideoId, out var notReady) && notReady,
             }).ToList();
         }
 
-        // Live streams and announced (upcoming) broadcasts have no media streams yet, so serving them would only
-        // give 404s. They are left out of the feed (Pending) and show up once YouTube has turned them into normal videos.
-        // One videos.list call per page of 50 items (1 quota unit). Videos YouTube does not return (deleted, private) are absent from the result.
+        // Live streams, announced (upcoming) broadcasts and videos YouTube has not finished processing (uploadStatus
+        // "uploaded", e.g. a live stream that ended a few hours ago) cannot be served yet: YoutubeExplode fails on them
+        // and the feed would only give 404s. They are left out of the feed (Pending) and show up once YouTube has turned
+        // them into normal videos. One videos.list call per page of 50 items (1 quota unit, whatever parts are asked for).
+        // Videos YouTube does not return (deleted, private) are absent from the result.
         private async Task<Dictionary<string, bool>> GetVideoStatesAsync(IEnumerable<string> videoIds)
         {
-            var request = _youtubeService.Videos.List("snippet");
+            var request = _youtubeService.Videos.List("snippet,status");
             request.Id = string.Join(",", videoIds.Distinct());
             request.MaxResults = 50;
-            request.Fields = "items(id,snippet/liveBroadcastContent)";
+            request.Fields = "items(id,snippet/liveBroadcastContent,status/uploadStatus)";
             var response = await request.ExecuteAsync();
             return (response.Items ?? new List<Video>()).
                 GroupBy(_ => _.Id).
-                ToDictionary(_ => _.Key, _ => _.First().Snippet?.LiveBroadcastContent is "live" or "upcoming");
+                ToDictionary(_ => _.Key, _ => IsNotReady(_.First()));
         }
+
+        private static bool IsNotReady(Video video) =>
+            video.Snippet?.LiveBroadcastContent is "live" or "upcoming" ||
+            video.Status?.UploadStatus is "uploaded";
 
         private static SyndicationItem GenerateItem(CachedItem playlistItem, string baseAddress, Arguments arguments, bool isVideo)
         {

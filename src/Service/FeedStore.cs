@@ -37,7 +37,7 @@ namespace Service
         public string Description { get; set; }
         public DateTime PublishedAt { get; set; }
 
-        /// <summary>A live stream or announced broadcast: kept (so it is known) but left out of the feed until it is a normal video.</summary>
+        /// <summary>A live stream, announced broadcast or not yet processed video: kept (so it is known) but left out of the feed until it is a normal video.</summary>
         public bool Pending { get; set; }
     }
 
