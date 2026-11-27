@@ -1,9 +1,28 @@
-YouCast
-=======
+YouCast (headless fork)
+=======================
 
-[![All Releases](https://img.shields.io/github/downloads/i3arnon/YouCast/total.svg)](https://github.com/i3arnon/YouCast/releases)
-[![Release](https://img.shields.io/github/release/i3arnon/YouCast.svg)](https://github.com/i3arnon/YouCast/releases)
-[![License](https://img.shields.io/github/license/i3arnon/YouCast.svg)](LICENSE)
+> [!NOTE]
+> This is a fork of [i3arnon/YouCast](https://github.com/i3arnon/YouCast), ported to a headless
+> .NET 10 service for Linux. The Windows GUI is removed. It is run and tested on a home server
+> with Apple Podcasts on iOS; other podcast apps and Windows are untested.
+
+**Requirements:** .NET 10 (ASP.NET Core runtime), `ffmpeg` for video feeds, and your own
+YouTube Data API key. YouTube blocks most datacenter IP addresses, so run it from a home connection.
+
+Changes from the original:
+- Headless ASP.NET Core service configured by `/etc/youcast.conf`; RPM spec and an EL10 container file in `packaging/`
+- Audio feeds serve the original-language AAC track (not a dubbed one)
+- Video feeds (360p/720p): video and audio downloaded separately and joined with ffmpeg, kept in a disk cache with HTTP range support
+- Live streams, scheduled broadcasts and videos YouTube is still processing are left out of the feed until they can be played
+- Feed lists are cached and updated incrementally (about one API call per feed refresh), and the last saved feed is served when YouTube cannot be reached
+- Channels can be given as `@handle`, channel id or old username
+- Uses a YoutubeExplode fork (submodule `third_party/YoutubeExplode`) that loads stream lists faster
+
+---
+
+## About YouCast
+
+*The rest of this README comes from the original project, updated for this fork where needed (Usage and the API key steps).*
 
 YouCast allows you to subscribe to channels and playlists on YouTube as video and audio podcasts in any standard podcast app (e.g. Overcast, iTunes, BeyondPod, etc.).
 
@@ -43,4 +62,3 @@ Google restricts the amount of requests you can make per day with each API key. 
 ## Known Issues
 
 1. Explicit/restricted videos can't be downloaded (they require YouCast to login with a user)
-1. Audio feed episodes on iOS are 2X in length (second half is silent)
